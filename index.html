@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>공작기계 4社 재무 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { background: #0f1117; color: #e2e8f0; font-family: 'Segoe UI', -apple-system, sans-serif; }
+  .tab-btn { transition: all 0.2s ease; border-bottom: 2px solid transparent; }
+  .tab-btn.active { border-bottom-color: #60a5fa; color: #60a5fa; background: rgba(96,165,250,0.08); }
+  .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: #cbd5e1; }
+  .card { background: #1e2130; border: 1px solid #2d3348; border-radius: 10px; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .guidance-badge { background: linear-gradient(135deg, #1e3a5f, #1e4a3f); border: 1px solid #3b6ea5; border-radius: 8px; }
+  .note-box { background: #1a1f2e; border-left: 3px solid #4b5563; border-radius: 0 6px 6px 0; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #252b3b; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 8px 12px; text-align: right; }
+  th:first-child { text-align: left; }
+  td { padding: 7px 12px; font-size: 13px; border-bottom: 1px solid #232839; text-align: right; }
+  td:first-child { text-align: left; font-weight: 500; }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+  .pos { color: #34d399; }
+  .neg { color: #f87171; }
+  .chart-container { position: relative; }
+  canvas { max-width: 100%; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #1e2130; }
+  ::-webkit-scrollbar-thumb { background: #3d4561; border-radius: 3px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .pill-up { background: rgba(52,211,153,0.15); color: #34d399; }
+  .pill-down { background: rgba(248,113,113,0.15); color: #f87171; }
+  /* Earnings Call Accordion */
+  .ec-card { background: #16192a; border: 1px solid #252b3b; border-radius: 8px; overflow: hidden; }
+  .ec-toggle { width: 100%; text-align: left; padding: 11px 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: transparent; border: none; color: #e2e8f0; }
+  .ec-toggle:hover { background: rgba(255,255,255,0.04); }
+  .ec-body { padding: 2px 16px 14px; border-top: 1px solid #252b3b; }
+  .ec-qbadge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 700; letter-spacing: 0.04em; }
+  .ec-fin { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+  .ec-fin-item { background: #1e2130; border: 1px solid #2d3348; border-radius: 6px; padding: 7px 12px; min-width: 110px; }
+  .ec-fin-item .ef-label { font-size: 10px; color: #64748b; margin-bottom: 2px; }
+  .ec-fin-item .ef-val { font-size: 13px; font-weight: 600; color: #e2e8f0; }
+  .ec-fin-item .ef-sub { font-size: 10px; color: #64748b; }
+  .ec-comments { font-size: 12px; color: #94a3b8; line-height: 1.65; }
+  .ec-comments li { margin-bottom: 5px; padding-left: 14px; position: relative; }
+  .ec-comments li::before { content: '›'; position: absolute; left: 0; color: #60a5fa; font-weight: bold; }
+  .ec-guidance { background: rgba(96,165,250,0.07); border: 1px solid rgba(96,165,250,0.18); border-radius: 6px; padding: 8px 12px; margin-top: 10px; font-size: 11px; color: #93c5fd; }
+  .ec-guidance span { color: #64748b; margin: 0 6px; }
+  .ec-section-title { font-size: 13px; font-weight: 600; color: #e2e8f0; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #252b3b; display: flex; align-items: center; gap-8px; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- HEADER -->
+<div class="px-6 pt-6 pb-4 border-b border-gray-800">
+  <div class="max-w-screen-2xl mx-auto flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">공작기계 4社 재무 대시보드</h1>
+      <p class="text-sm text-gray-400 mt-1">Machine Tool Sector — Quarterly Financials Comparison</p>
+    </div>
+    <div class="flex items-center gap-4 text-xs text-gray-500">
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block"></span>Okuma (TYO:6103)</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-orange-400 inline-block"></span>Makino (TYO:6135)</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block"></span>DMG MORI AG (ETR:GIL)</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-teal-400 inline-block"></span>DMG MORI (TYO:6141)</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-400 inline-block"></span>DN솔루션즈</span>
+      <span class="text-gray-600">|</span>
+      <span>Data as of Q4 2025 / Mar 2026</span>
+    </div>
+  </div>
+</div>
+
+<!-- TAB NAV -->
+<div class="px-6 border-b border-gray-800 sticky top-0 z-10" style="background:#0f1117;">
+  <div class="max-w-screen-2xl mx-auto flex overflow-x-auto">
+    <button class="tab-btn active px-5 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('overview')">Overview 비교</button>
+    <button class="tab-btn px-5 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('okuma')">Okuma 오쿠마</button>
+    <button class="tab-btn px-5 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('makino')">Makino 마키노</button>
+    <button class="tab-btn px-5 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('dmgag')">DMG MORI AG 독일</button>
+    <button class="tab-btn px-5 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('dmgjp')">DMG MORI 6141 일본</button>
+    <button class="tab-btn px-5 py-3 text-sm font-medium whitespace-nowrap" onclick="switchTab('dn')">DN솔루션즈 한국</button>
+  </div>
+</div>
+
+<div class="max-w-screen-2xl mx-auto px-6 py-6">
+
+<!-- ============================================================
+     TAB 1: OVERVIEW
+     ============================================================ -->
+<div id="tab-overview" class="tab-content active">
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- Okuma -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-gray-400 font-medium">Okuma (TYO:6103)</span>
+        <span class="pill pill-down">-28.5%</span>
+      </div>
+      <div class="text-xl font-bold text-blue-300">¥61.3B</div>
+      <div class="text-xs text-gray-500 mt-1">Q4 2025 Revenue · JPY</div>
+      <div class="mt-3 pt-3 border-t border-gray-700 grid grid-cols-2 gap-2 text-xs">
+        <div><div class="text-gray-500">OP Margin</div><div class="text-white font-medium">7.1%</div></div>
+        <div><div class="text-gray-500">Net Income</div><div class="text-white font-medium">¥3,990M</div></div>
+      </div>
+    </div>
+    <!-- Makino -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-gray-400 font-medium">Makino (TYO:6135)</span>
+        <span class="pill pill-up">+13.3%</span>
+      </div>
+      <div class="text-xl font-bold text-orange-300">¥70.7B</div>
+      <div class="text-xs text-gray-500 mt-1">Q4 2025 Revenue · JPY</div>
+      <div class="mt-3 pt-3 border-t border-gray-700 grid grid-cols-2 gap-2 text-xs">
+        <div><div class="text-gray-500">OP Margin</div><div class="text-white font-medium">11.6%</div></div>
+        <div><div class="text-gray-500">Net Income</div><div class="text-white font-medium">¥7,267M</div></div>
+      </div>
+    </div>
+    <!-- DMG AG -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-gray-400 font-medium">DMG MORI AG (ETR:GIL)</span>
+        <span class="pill pill-down">-1.4%</span>
+      </div>
+      <div class="text-xl font-bold text-purple-300">€689M</div>
+      <div class="text-xs text-gray-500 mt-1">Q4 2025 Revenue · EUR</div>
+      <div class="mt-3 pt-3 border-t border-gray-700 grid grid-cols-2 gap-2 text-xs">
+        <div><div class="text-gray-500">OP Margin</div><div class="text-white font-medium">9.1%</div></div>
+        <div><div class="text-gray-500">Net Income</div><div class="text-white font-medium">€34.6M</div></div>
+      </div>
+    </div>
+    <!-- DMG JP -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-gray-400 font-medium">DMG MORI (TYO:6141)</span>
+        <span class="pill pill-up">+14.5%</span>
+      </div>
+      <div class="text-xl font-bold text-teal-300">¥176.6B</div>
+      <div class="text-xs text-gray-500 mt-1">Q4 2025 Revenue · JPY</div>
+      <div class="mt-3 pt-3 border-t border-gray-700 grid grid-cols-2 gap-2 text-xs">
+        <div><div class="text-gray-500">OP Margin</div><div class="text-white font-medium">4.2%</div></div>
+        <div><div class="text-gray-500">Net Income</div><div class="text-white font-medium">¥3,031M</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-5">
+    <div class="card p-5">
+      <h3 class="text-sm font-semibold text-gray-300 mb-1">YoY Revenue Growth (%) — Quarterly</h3>
+      <p class="text-xs text-gray-500 mb-4">Calendar quarter basis · Okuma/Makino mapped from fiscal quarters</p>
+      <div class="chart-container" style="height:300px;">
+        <canvas id="chartOverviewGrowth"></canvas>
+      </div>
+    </div>
+    <div class="card p-5">
+      <h3 class="text-sm font-semibold text-gray-300 mb-1">Operating Margin (%) — Quarterly</h3>
+      <p class="text-xs text-gray-500 mb-4">All listed companies · Trailing quarterly OP margin</p>
+      <div class="chart-container" style="height:300px;">
+        <canvas id="chartOverviewMargin"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue Size Comparison -->
+  <div class="card p-5 mb-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-1">분기 매출 규모 비교 · Quarterly Revenue (USD M)</h3>
+    <p class="text-xs text-gray-500 mb-4">All companies converted to USD: JPY÷150, EUR×1.1, KRW÷1300</p>
+    <div class="chart-container" style="height:300px;">
+      <canvas id="chartOverviewRevUSD"></canvas>
+    </div>
+  </div>
+
+  <!-- Operating Income Comparison -->
+  <div class="card p-5 mb-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-1">분기 영업이익 비교 · Quarterly Operating Income (USD M)</h3>
+    <p class="text-xs text-gray-500 mb-4">All companies converted to USD: JPY÷150, EUR×1.1, KRW÷1300</p>
+    <div class="chart-container" style="height:300px;">
+      <canvas id="chartOverviewOpIncome"></canvas>
+    </div>
+  </div>
+
+  <!-- Stock Price Indexed Chart -->
+  <div class="card p-5 mb-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-1">주가 상대 성과 · Relative Stock Performance (2021Q1 = 100)</h3>
+    <p class="text-xs text-gray-500 mb-4">분기말 종가 기준 · 2021년 Q1 종가를 100으로 인덱스 · DN솔루션즈 비상장 제외 · Okuma 2024년 9월 2:1 주식분할 반영</p>
+    <div class="chart-container" style="height:320px;">
+      <canvas id="chartOverviewStock"></canvas>
+    </div>
+  </div>
+
+  <!-- Market Cap Chart -->
+  <div class="card p-5 mb-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-1">시가총액 추이 · Market Cap Trend (조원)</h3>
+    <p class="text-xs text-gray-500 mb-4">분기말 종가 기준 (26Q1은 2026-03-31) · JPY×9.3, EUR×1,500 원화 환산 · DN오토모티브(007340)는 DN솔루션즈 프록시 · 2024년 9월 DN오토모티브 5:1 액면분할 수정주가 반영</p>
+    <div class="chart-container" style="height:280px;">
+      <canvas id="chartOverviewMktCap"></canvas>
+    </div>
+    <div class="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400 mb-1">Okuma (6103)</div>
+        <div class="text-base font-bold text-blue-400">2.0조원</div>
+        <div class="text-xs text-gray-500">60.5M shares · ¥3,525 <span class="text-gray-600">(≈213B JPY)</span></div>
+      </div>
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400 mb-1">Makino (6135)</div>
+        <div class="text-base font-bold text-orange-400">2.5조원</div>
+        <div class="text-xs text-gray-500">23.4M shares · ¥11,480 <span class="text-gray-600">(≈269B JPY)</span></div>
+      </div>
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400 mb-1">DMG MORI AG (GIL)</div>
+        <div class="text-base font-bold text-purple-400">5.7조원</div>
+        <div class="text-xs text-gray-500">78.8M shares · €47.90 <span class="text-gray-600">(≈€3.8B)</span></div>
+      </div>
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400 mb-1">DMG MORI JP (6141)</div>
+        <div class="text-base font-bold text-teal-400">3.1조원</div>
+        <div class="text-xs text-gray-500">139.3M shares · ¥2,379 <span class="text-gray-600">(≈331B JPY)</span></div>
+      </div>
+      <div class="bg-gray-800 rounded p-3 text-center">
+        <div class="text-xs text-gray-400 mb-1">DN오토모티브 (007340)</div>
+        <div class="text-base font-bold text-rose-400">2.2조원</div>
+        <div class="text-xs text-gray-500">58.5M shares · ₩38,150 <span class="text-gray-600">(DN솔루션즈 proxy)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Table -->
+  <div class="card p-5 mb-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-4">최근 분기 실적 요약 · Latest Quarter Summary</h3>
+    <div class="overflow-x-auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Period</th>
+            <th>Revenue</th>
+            <th>YoY</th>
+            <th>Op Income</th>
+            <th>OP Margin</th>
+            <th>Net Income</th>
+            <th>FY2026 Rev Guidance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>Okuma (TYO:6103)</td>
+            <td class="text-gray-400">Q4 2025</td>
+            <td>¥61,291M</td>
+            <td><span class="pill pill-down">-28.5%</span></td>
+            <td>¥4,383M</td>
+            <td class="text-gray-300">7.1%</td>
+            <td>¥3,990M</td>
+            <td class="text-blue-300">¥220B</td>
+          </tr>
+          <tr>
+            <td><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span>Makino (TYO:6135)</td>
+            <td class="text-gray-400">Q4 2025</td>
+            <td>¥70,711M</td>
+            <td><span class="pill pill-up">+13.3%</span></td>
+            <td>¥8,175M</td>
+            <td class="text-gray-300">11.6%</td>
+            <td>¥7,267M</td>
+            <td class="text-orange-300">¥252B</td>
+          </tr>
+          <tr>
+            <td><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-purple-400 inline-block"></span>DMG MORI AG (ETR:GIL)</td>
+            <td class="text-gray-400">Q4 2025</td>
+            <td>€689.5M</td>
+            <td><span class="pill pill-down">-1.4%</span></td>
+            <td>€62.5M</td>
+            <td class="text-gray-300">9.1%</td>
+            <td>€34.6M</td>
+            <td class="text-purple-300">€2.0–2.2B</td>
+          </tr>
+          <tr>
+            <td><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-teal-400 inline-block"></span>DMG MORI (TYO:6141)</td>
+            <td class="text-gray-400">Q4 2025</td>
+            <td>¥176,579M</td>
+            <td><span class="pill pill-up">+14.5%</span></td>
+            <td>¥7,439M</td>
+            <td class="text-gray-300">4.2%</td>
+            <td>¥3,031M</td>
+            <td class="text-teal-300">¥535B</td>
+          </tr>
+          <tr>
+            <td><span class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>DN솔루션즈</td>
+            <td class="text-gray-400">Q4 2025</td>
+            <td>₩968,622M</td>
+            <td><span class="pill pill-up">+5.3%</span></td>
+            <td>₩149,955M</td>
+            <td class="text-gray-300">15.5%</td>
+            <td>₩106,214M</td>
+            <td class="text-red-300">N/A (비상장)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="note-box p-4 text-xs text-gray-400 leading-relaxed">
+    <strong class="text-gray-300">Notes:</strong>
+    Okuma/Makino FY ends March 31 — fiscal quarters mapped to calendar: Q4 FY = Jan-Mar, Q1 FY = Apr-Jun, Q2 FY = Jul-Sep, Q3 FY = Oct-Dec.
+    DMG MORI AG Q1 2024: Net income includes ~€-85M Russia deconsolidation one-time charge; Q2 2024 elevated by one-time items.
+    DMG MORI (6141) Q3 2025 순이익 18,942M에는 러시아 공장(Ulyanovsk) 보험금 일회성 수익 16,875M 포함. 계속영업 기준 순이익 약 2,082M.
+    DN솔루션즈: DN오토모티브(007340) DART 연결재무제표 분기 데이터. 2021년은 DN솔루션즈 편입 이전, 2022Q1~부터 포함.
+    Sources: Company IR / StockAnalysis.com / DART / Press releases.
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 2: OKUMA
+     ============================================================ -->
+<div id="tab-okuma" class="tab-content">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-white">Okuma Corporation <span class="text-gray-400 font-normal text-base">TYO:6103</span></h2>
+      <p class="text-xs text-gray-500 mt-0.5">JPY Millions · FY ends March 31 · Mapped to calendar quarters</p>
+    </div>
+    <div class="guidance-badge px-4 py-2 text-sm">
+      <span class="text-gray-400 text-xs block mb-0.5">FY2026 Guidance</span>
+      <span class="text-blue-300 font-semibold">Rev ¥220B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-green-300 font-semibold">OP ¥14B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-cyan-300 font-semibold">Net ¥10B</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Revenue &amp; Op Income (JPY M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartOkuma1"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Operating Margin (%)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartOkuma2"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Net Income (JPY M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartOkuma3"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-4">Annual Summary (FY ends March 31)</h3>
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr>
+          <th>FY</th><th>Revenue (JPY M)</th><th>Op Income (JPY M)</th><th>Net Income (JPY M)</th><th>OP Margin</th><th>Net Margin</th>
+        </tr></thead>
+        <tbody id="tableOkuma"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note-box p-3 text-xs text-gray-400">FY2026 guidance as of Mar 2026 earnings announcement. Calendar quarter mapping: FY Q4=Jan-Mar, Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec.</div>
+
+  <!-- Okuma Orders & Backlog -->
+  <div class="mt-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-3">수주 &amp; 수주잔고 (New Orders &amp; Backlog)</h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-3">
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">신규수주 New Orders (JPY M) <span class="text-gray-600">· Source: Visible Alpha</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartOkumaOrders"></canvas></div>
+      </div>
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">수주잔고 Order Backlog (JPY M) <span class="text-gray-600">· Source: Visible Alpha</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartOkumaBacklog"></canvas></div>
+      </div>
+    </div>
+    <div class="note-box p-3 text-xs text-gray-400">2021Q1 = 4QFY2021 (Jan-Mar 2021) 데이터 없음(null). 백로그는 분기말 잔고 기준. FY→Calendar 변환: 4QFY=CalQ1, 1QFY=CalQ2, 2QFY=CalQ3, 3QFY=CalQ4.</div>
+  </div>
+
+  <!-- Okuma Earnings Calls -->
+  <div class="mt-6">
+    <div class="ec-section-title">📋&nbsp; 2025 결산설명회 요약 (한국어)</div>
+    <div class="space-y-2">
+
+      <!-- Q3 FY2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-indigo-900 text-indigo-300">FY2025 3Q 누계</span>
+            <span class="text-sm font-medium">2025년 2월 5일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2024년 4월~12월 (9개월 누계)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액 (누계)</div><div class="ef-val text-blue-300">¥1,490억</div><div class="ef-sub">YoY -11.0%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">영업이익 (누계)</div><div class="ef-val text-green-300">¥101억</div><div class="ef-sub">마진 6.8%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익 (누계)</div><div class="ef-val text-yellow-300">¥74억</div><div class="ef-sub">YoY -42.7%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주액 (누계)</div><div class="ef-val text-gray-200">¥1,520억</div><div class="ef-sub">YoY -1.6%</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>Q3 단독(10~12월) 경상이익이 전년동기 대비 거의 보합(-0.1%) → 감익 국면이 바닥을 찍는 조짐</li>
+            <li>대기업 수요는 견조하나, 중소 제조업체의 설비투자 관망세가 국내외 모두 지속. 미국에서는 차기 정권 정책 동향을 파악하려는 움직임 강함</li>
+            <li>유럽은 독일 자동차산업 부진 영향. 엔저 효과로 해외 경쟁력 일부 유지</li>
+            <li>통기 가이던스 변경 없이 유지 (경상이익 175억엔, 3Q 진행률 64.5%)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FY2025 통기 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-blue-900 text-blue-300">FY2025 통기</span>
+            <span class="text-sm font-medium">2025년 5월 9일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2024년 4월~2025년 3월 (연간)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액</div><div class="ef-val text-blue-300">¥2,068억</div><div class="ef-sub">YoY -9.3%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">영업이익</div><div class="ef-val text-green-300">¥146.5억</div><div class="ef-sub">마진 7.1%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익</div><div class="ef-val text-yellow-300">¥95.9억</div><div class="ef-sub">YoY -50.5%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주액</div><div class="ef-val text-green-400">¥2,156억</div><div class="ef-sub">YoY +5.7%↑</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>공작기계 수요는 대기업 향은 견조했으나 중견·중소사업자의 관망세 지속 → 전체 매출·이익은 전년 대비 크게 감소</li>
+            <li>연간 수주액이 전기 대비 +5.7% 증가로 반전, 특히 2025년 4월 단월 수주가 전년동월 대비 +40%로 7개월 연속 플러스 달성 → 수주 바닥 확인</li>
+            <li>반도체 제조장치·항공우주·에너지 관련 설비투자 회복이 하반기부터 진전될 것으로 기대. "V자 회복을 목표로 한다"</li>
+            <li>FY2025는 전형적인 공작기계 다운사이클 경험 (수주고점 FY2023 → 수주급감 FY2024 → 매출하락 반영 FY2025)</li>
+          </ul>
+          <div class="ec-guidance">FY2026 가이던스 <span>|</span> 매출 ¥2,300억 (+11.2%) <span>|</span> 영업이익 ¥220억 (+50.2%) <span>|</span> 순이익 ¥150억 (+56.4%) <span>|</span> 배당 100엔 유지</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 3: MAKINO
+     ============================================================ -->
+<div id="tab-makino" class="tab-content">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-white">Makino Milling Machine <span class="text-gray-400 font-normal text-base">TYO:6135</span></h2>
+      <p class="text-xs text-gray-500 mt-0.5">JPY Millions · FY ends March 31 · Mapped to calendar quarters</p>
+    </div>
+    <div class="guidance-badge px-4 py-2 text-sm">
+      <span class="text-gray-400 text-xs block mb-0.5">FY2026 Guidance</span>
+      <span class="text-orange-300 font-semibold">Rev ¥252B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-green-300 font-semibold">OP ¥23.8B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-cyan-300 font-semibold">Net ¥19.4B</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Revenue &amp; Op Income (JPY M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartMakino1"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Operating Margin (%)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartMakino2"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Net Income (JPY M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartMakino3"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-4">Annual Summary (FY ends March 31)</h3>
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr>
+          <th>FY</th><th>Revenue (JPY M)</th><th>Op Income (JPY M)</th><th>Net Income (JPY M)</th><th>OP Margin</th><th>Net Margin</th>
+        </tr></thead>
+        <tbody id="tableMakino"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note-box p-3 text-xs text-gray-400">FY2026 guidance as of Mar 2026 announcement. Makino is known for premium 5-axis machining centers with strong aerospace exposure.</div>
+
+  <!-- Makino Orders -->
+  <div class="mt-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-3">수주 New Orders &amp; Backlog (JPY M)</h3>
+    <div class="grid grid-cols-2 gap-4 mb-3">
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">신규수주 New Orders (JPY M) <span class="pill pill-down text-xs ml-2">일부 추정치</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartMakinoOrders"></canvas></div>
+      </div>
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">수주잔고 Order Backlog (JPY M) <span class="pill pill-down text-xs ml-2">일부 추정치</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartMakinoBacklog"></canvas></div>
+      </div>
+    </div>
+    <div class="note-box p-3 text-xs text-gray-400">수주 데이터: ir.makino.co.jp 결산短信 확정값(*=누계역산). 2021Q1–Q3·2022Q1·2023Q1은 YoY비율 추정(est). 수주잔고: FY2026 Q1-Q3(CY 2025Q2~Q4) 확정값 반영 (103,184→107,114→111,795 JPY M, YoY +3.8%→+9.2%→+13.4%).</div>
+  </div>
+
+  <!-- Makino Earnings Calls -->
+  <div class="mt-6">
+    <div class="ec-section-title">📋&nbsp; 2025 결산설명회 요약 (한국어)</div>
+    <div class="space-y-2">
+
+      <!-- Q3 FY2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-orange-950 text-orange-300">FY2025 3Q 누계</span>
+            <span class="text-sm font-medium">2025년 1월 31일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2024년 4월~12월 (9개월 누계)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액 (누계)</div><div class="ef-val text-orange-300">¥1,688억</div><div class="ef-sub">YoY +3.6%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">영업이익 (누계)</div><div class="ef-val text-green-300">¥132억</div><div class="ef-sub">마진 7.8%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익 (누계)</div><div class="ef-val text-yellow-300">¥105억</div><div class="ef-sub">YoY -6.6%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주액 (누계)</div><div class="ef-val text-green-400">¥1,696억</div><div class="ef-sub">YoY +6.2%</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>미국향 수주 3Q 누계 전년동기比 +18.9% 대폭 증가 — 항공기·의료 관련 堅調</li>
+            <li>중국·인도: 신에너지차(NEV)·반도체 관련 부품 가공향 강세 지속. 인도는 항공기·전기전자 수요 급증</li>
+            <li>유럽: 독일 감소, 프랑스·이탈리아·동유럽에서 자동차·일반기계향 수주 부분 보완</li>
+            <li>2025년 1월부터 신규 견적에 추가 가격 인상 적용 개시 → FY2026 이후 매출에 반영 예정</li>
+            <li>통기 가이던스 유지 (매출 2,250억엔, 영업이익 170억엔)</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- FY2025 통기 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-orange-900 text-orange-200">FY2025 통기</span>
+            <span class="text-sm font-medium">2025년 4월 30일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2024년 4월~2025년 3월 (연간)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액</div><div class="ef-val text-orange-300">¥2,342억</div><div class="ef-sub">YoY +3.9%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">영업이익</div><div class="ef-val text-green-300">¥185억</div><div class="ef-sub">마진 7.9%, +13%↑</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익</div><div class="ef-val text-yellow-300">¥144억</div><div class="ef-sub">YoY -9.8%*</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주액</div><div class="ef-val text-green-400">¥2,380억</div><div class="ef-sub">YoY +11.5%↑</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>매출·영업이익 모두 계획 상회. 수주도 계획 대비 +4.6% 초과달성 (연간 수주 +11.5% 대폭 증가)</li>
+            <li>순이익이 영업이익과 달리 감소(-9.8%)한 것은 전기 투자유가증권 매각益 기저효과 탓 (경상이익은 +6.2% 증가)</li>
+            <li>미국 관세 대응: "서차지로 고객에게 전가가 기본 방침. 일시 선적 중단 후 재개. 주요 고객의 설비투자 계획은 지속"</li>
+            <li>중국 인프라투자 증가 + NEV 금형·부품향 지속 강세. 인도는 항공기·반도체 제조장치향 수요 급증</li>
+            <li>2025년 1월부터 5번째 가격 인상 적용 개시, FY2026 이익률 추가 개선 기대</li>
+            <li>주주환원 강화: 총환원성향 35~45% → 60%로 상향</li>
+          </ul>
+          <div class="ec-guidance">FY2026 가이던스 <span>|</span> 매출 ¥2,400억 (+2.5%) <span>|</span> 영업이익 ¥215억 (+16.1%) <span>|</span> 순이익 ¥180억 (+24.9%) <span>|</span> 배당 270엔 (90엔 증액)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 4: DMG MORI AG
+     ============================================================ -->
+<div id="tab-dmgag" class="tab-content">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-white">DMG MORI AG <span class="text-gray-400 font-normal text-base">ETR:GIL</span></h2>
+      <p class="text-xs text-gray-500 mt-0.5">EUR Millions · Calendar Year</p>
+    </div>
+    <div class="guidance-badge px-4 py-2 text-sm">
+      <span class="text-gray-400 text-xs block mb-0.5">FY2026 Guidance</span>
+      <span class="text-purple-300 font-semibold">Rev €2.0–2.2B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-green-300 font-semibold">EBIT €90–110M</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Revenue &amp; EBIT (EUR M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartDmgAG1"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">EBIT Margin (%)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartDmgAG2"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Net Income (EUR M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartDmgAG3"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-4">Annual Summary (Calendar Year)</h3>
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr>
+          <th>Year</th><th>Revenue (EUR M)</th><th>EBIT (EUR M)</th><th>Net Income (EUR M)</th><th>EBIT Margin</th><th>Net Margin</th>
+        </tr></thead>
+        <tbody id="tableDmgAG"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note-box p-3 text-xs text-gray-400">
+    Q1 2024: Net income includes ~€-85M one-time charge from Russia subsidiary deconsolidation. Q2 2024: Elevated by one-time items. Adjusted for these, underlying net income Q1 2024 est. ~€28M.
+  </div>
+
+  <!-- DMG MORI AG Orders -->
+  <div class="mt-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-3">수주 New Orders (EUR M)</h3>
+    <div class="card p-4 mb-3">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">신규수주 Auftragseingang (EUR M) <span class="pill pill-down text-xs ml-2">일부 추정</span></h4>
+      <div class="chart-container" style="height:220px;"><canvas id="chartDmgAGOrders"></canvas></div>
+    </div>
+    <div class="note-box p-3 text-xs text-gray-400">확정값: 2021 Q1/Q2, 2022 전분기, 2024Q3, 2025 Q1/Q2/Q3(IR 공시). 추정값: 2021 Q3/Q4(H2합계 계절비분할), 2023(9M=2060.6M 기준 분할, Q4=연간~2594-9M), 2024 Q1/Q2(H1=1228.6M 분할), 2024Q4·2025Q4(연간합계-9M 역산). 수주잔고(Auftragsbestand)는 별도 차트로 표시.</div>
+    <div class="card p-4 mt-3 mb-3">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">수주잔고 Auftragsbestand (EUR M) <span class="pill pill-down text-xs ml-2">일부 추정</span></h4>
+      <div class="chart-container" style="height:200px;"><canvas id="chartDmgAGBacklog"></canvas></div>
+    </div>
+    <div class="note-box p-3 text-xs text-gray-400">수주잔고: Q3/Q4 2022 확정(IR). 2023/2024는 전기잔고+수주-매출로 역산한 추정값. 2025는 데이터 없음(null). IR 기준 확정 수주잔고와 차이 있을 수 있음.</div>
+  </div>
+
+  <!-- DMG MORI AG Earnings Calls -->
+  <div class="mt-6">
+    <div class="ec-section-title">📋&nbsp; 2025 결산설명회 요약 (한국어)</div>
+    <div class="space-y-2">
+
+      <!-- FY2024 연간 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-purple-950 text-purple-300">FY2024 연간</span>
+            <span class="text-sm font-medium">2025년 3월 20일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2024년 전체 (CY2024)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액</div><div class="ef-val text-purple-300">€2,228M</div><div class="ef-sub">YoY -11%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT</div><div class="ef-val text-green-300">€245M</div><div class="ef-sub">마진 11.0%↑</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익(EAT)</div><div class="ef-val text-yellow-300">€87.5M</div><div class="ef-sub">러시아손실 -€92M 포함</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주잔고</div><div class="ef-val text-gray-200">€2,257M</div><div class="ef-sub">YoY -13%</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>매출은 시장 약세로 감소했으나 EBIT는 오히려 개선(+7%) — MX 전략(수익성 경영)이 효과를 발휘</li>
+            <li>순이익 감소: 러시아 우리야놉스크 공장 비연결화 및 ECOLINE 라인 단종에 따른 중단사업 손실 -€91.9M 반영</li>
+            <li>잉여현금흐름(FCF) €117M (+25%) — 운전자본 효율화 및 수익성 개선 효과</li>
+          </ul>
+          <div class="ec-guidance">FY2025 초기 가이던스 <span>|</span> 매출 €2.2~2.3B <span>|</span> EBIT €150~160M <span>|</span> FCF €110~130M</div>
+        </div>
+      </div>
+
+      <!-- Q1 2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-purple-900 text-purple-200">Q1 2025</span>
+            <span class="text-sm font-medium">2025년 5월 7일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 1~3월</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액</div><div class="ef-val text-purple-300">€469M</div><div class="ef-sub">YoY -15%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT</div><div class="ef-val text-green-300">€19.7M</div><div class="ef-sub">마진 4.2%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익</div><div class="ef-val text-yellow-300">€15.3M</div><div class="ef-sub">전년 -€57M → 흑전</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주</div><div class="ef-val text-gray-200">€558M</div><div class="ef-sub">YoY -15%</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>"2025년 1분기 시장환경이 다시 흐려졌다. 미국의 관세 정책으로 시장 불확실성이 크게 상승"</li>
+            <li>국내(독일) 수주 -18%, 해외 수주 비중 65%로 지속 확대</li>
+            <li>하반기 EMO 하노버 박람회(9월) 효과 및 시장 안정화 기대로 연간 가이던스는 유지</li>
+          </ul>
+          <div class="ec-guidance">연간 가이던스 유지 <span>|</span> 매출 €2.2~2.3B <span>|</span> EBIT €150~160M</div>
+        </div>
+      </div>
+
+      <!-- H1 2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-purple-900 text-purple-200">H1 2025</span>
+            <span class="text-sm font-medium">2025년 8월 1일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 1~6월 (상반기)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액 (H1)</div><div class="ef-val text-purple-300">€953M</div><div class="ef-sub">YoY -14%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT (H1)</div><div class="ef-val text-green-300">€44.9M</div><div class="ef-sub">마진 4.7%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익 (H1)</div><div class="ef-val text-yellow-300">€33.9M</div><div class="ef-sub">전년 -€12M → 흑전</div></div>
+            <div class="ec-fin-item"><div class="ef-label">Q2 수주</div><div class="ef-val text-green-400">€579M</div><div class="ef-sub">YoY +2% 반전↑</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>Q2 수주가 전년동기比 +2% 플러스 전환 — 시장 안정화의 긍정적 신호</li>
+            <li>수주잔량 €734.6M (연초 €671.0M 대비 증가) — 하반기 매출 가시성 확보</li>
+            <li>지정학 리스크·무역분쟁 지속. 수주 국제화율 65%로 상승 (아시아·미주 수요 회복)</li>
+            <li>EMO 하노버 2025(9/22~26): 세계 최초 23개 포함 35개 신제품 발표 예정 — 수주 부양 기대</li>
+          </ul>
+          <div class="ec-guidance">연간 가이던스 유지 <span>|</span> 매출 €2.2~2.3B <span>|</span> EBIT €150~160M <span>|</span> FCF €110~130M</div>
+        </div>
+      </div>
+
+      <!-- Q3 2025 / 9M -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-purple-900 text-purple-200">9M 2025</span>
+            <span class="text-sm font-medium">2025년 10월 30일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 1~9월 (3분기 누계)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액 (9M)</div><div class="ef-val text-purple-300">€1,409M</div><div class="ef-sub">YoY -12%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT (9M)</div><div class="ef-val text-green-300">€61.2M</div><div class="ef-sub">마진 4.3%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익 (9M)</div><div class="ef-val text-yellow-300">€148.3M</div><div class="ef-sub">러시아보험금 €102M 포함</div></div>
+            <div class="ec-fin-item"><div class="ef-label">Q3 수주</div><div class="ef-val text-green-400">€590M</div><div class="ef-sub">YoY +17%↑ (EMO 효과)</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>EMO 하노버 박람회 효과로 Q3 수주 +17% — "MX 전략이 고객 니즈를 정확히 충족"</li>
+            <li>"그러나 예상했던 하반기 회복이 실현되지 않았다" → 연간 가이던스 하향 조정</li>
+            <li>러시아 우리야놉스크 공장 독일연방 해외투자보험금 €101.9M 수령 → 순이익 급증(일회성)</li>
+          </ul>
+          <div class="ec-guidance" style="border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);color:#fca5a5;">가이던스 하향 <span style="color:#64748b">|</span> 매출 €2.0~2.1B (기존 €2.2~2.3B) <span style="color:#64748b">|</span> EBIT €100~120M (기존 €150~160M) <span style="color:#64748b">|</span> FCF €60~90M</div>
+        </div>
+      </div>
+
+      <!-- FY2025 연간 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-purple-800 text-purple-100">FY2025 연간</span>
+            <span class="text-sm font-medium">2026년 3월 19일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 전체 (CY2025)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출액</div><div class="ef-val text-purple-300">€2,090M</div><div class="ef-sub">YoY -6%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT</div><div class="ef-val text-green-300">€125.2M</div><div class="ef-sub">마진 6.0%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">순이익</div><div class="ef-val text-yellow-300">€187.6M</div><div class="ef-sub">러시아보험금 포함</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주잔고</div><div class="ef-val text-green-400">€2,340M</div><div class="ef-sub">YoY +4%↑ 반전</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>2년 연속 감소하던 수주잔고가 +4% 플러스 전환 — EMEA·아메리카 수요 회복이 견인</li>
+            <li>EBIT 마진 11.0%→6.0% 급락 — 매출 감소 + 고정비 부담 + 제품 믹스 악화</li>
+            <li>FCF €114.3M (전년 €117.0M과 유사) — 재무 안정성 유지</li>
+            <li>러시아 ECOLINE 단종·우리야놉스크 공장 보상금 수령 → 구조조정 최종 마무리, 향후 특별손익 소멸</li>
+            <li>"품질·정밀도·혁신에 대한 집중을 일관 추진. 2026년은 불확실성을 감안해 보수적 가이던스"</li>
+          </ul>
+          <div class="ec-guidance">FY2026 가이던스 <span>|</span> 매출 €2.0~2.2B <span>|</span> EBIT €90~110M <span>|</span> FCF €80~100M</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 5: DMG MORI 6141
+     ============================================================ -->
+<div id="tab-dmgjp" class="tab-content">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-white">DMG MORI Co., Ltd. <span class="text-gray-400 font-normal text-base">TYO:6141</span></h2>
+      <p class="text-xs text-gray-500 mt-0.5">JPY Millions · Calendar Year</p>
+    </div>
+    <div class="guidance-badge px-4 py-2 text-sm">
+      <span class="text-gray-400 text-xs block mb-0.5">FY2026 Guidance</span>
+      <span class="text-teal-300 font-semibold">Rev ¥535B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-green-300 font-semibold">OP ¥22.5B</span>
+      <span class="text-gray-500 mx-2">|</span>
+      <span class="text-cyan-300 font-semibold">Net ¥10.5B</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Revenue &amp; Op Income (JPY M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartDmgJP1"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Operating Margin (%)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartDmgJP2"></canvas></div>
+    </div>
+    <div class="card p-4">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">Net Income (JPY M)</h4>
+      <div class="chart-container" style="height:240px;"><canvas id="chartDmgJP3"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-4">Annual Summary (Calendar Year)</h3>
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr>
+          <th>Year</th><th>Revenue (JPY M)</th><th>Op Income (JPY M)</th><th>Net Income (JPY M)</th><th>OP Margin</th><th>Net Margin</th>
+        </tr></thead>
+        <tbody id="tableDmgJP"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note-box p-3 text-xs text-gray-400">
+    Q3/Q4 2025: DMG MORI IR 누적 공시에서 역산. Q3 순이익에 러시아 공장 보험금 일회성 16,875M 포함 (계속영업 기준 ~2,082M).
+    Q1 2024 net income -¥8,661M includes one-time loss from DMG MORI AG Russia deconsolidation.
+  </div>
+
+  <!-- DMG MORI JP Orders & Backlog -->
+  <div class="mt-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-3">수주 &amp; 수주잔고 (New Orders &amp; Backlog)</h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-3">
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">신규수주 Total Orders (JPY M) <span class="text-gray-600">· Source: Visible Alpha</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartDmgJPOrders"></canvas></div>
+      </div>
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">수주잔고 Order Backlog (JPY M) <span class="text-gray-600">· Source: Visible Alpha</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartDmgJPBacklog"></canvas></div>
+      </div>
+    </div>
+    <div class="note-box p-3 text-xs text-gray-400">2021년 데이터 없음(null). DMG MORI JP는 CY 결산(12월말). 2025Q4까지 Visible Alpha 실적/컨센서스 기준.</div>
+  </div>
+
+  <!-- DMG MORI JP Earnings Calls -->
+  <div class="mt-6">
+    <div class="ec-section-title">📋&nbsp; 2025 결산설명회 요약 (한국어)</div>
+    <div class="space-y-2">
+
+      <!-- FY2024 연간 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-teal-950 text-teal-300">FY2024 연간</span>
+            <span class="text-sm font-medium">2025년 2월 5일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2024년 전체 (CY2024)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출수익</div><div class="ef-val text-teal-300">¥5,409억</div><div class="ef-sub">YoY +0.3%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT</div><div class="ef-val text-green-300">¥437억</div><div class="ef-sub">마진 8.1%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EAT(친귀속)</div><div class="ef-val text-yellow-300">¥77억</div><div class="ef-sub">러시아손실 -¥151억 포함</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주</div><div class="ef-val text-gray-200">¥4,960억</div><div class="ef-sub">YoY -4.6%</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>"MX(Machining Transformation) 전략이 단가 상승에 기여. 기계 평균 수주 단가 71.0백만엔(+15%↑)"</li>
+            <li>MRO·스페어파츠·엔지니어링 수주 구성비 25%로 확대 (2022년도 22%). 이익 안정화에 기여</li>
+            <li>자동화 수주 구성비 37% (2022년도 25%). 시스템 솔루션으로의 전환 가속</li>
+            <li>2030년 목표: 매출 8,000억엔, EBIT율 15%, EAT 800억엔. "중기계획 최종년도 목표 달성 곤란" 시인</li>
+          </ul>
+          <div class="ec-guidance">FY2025 초기 가이던스 <span>|</span> 매출 ¥5,100억 (-5.7%) <span>|</span> EBIT ¥380억 (율 7.5%) <span>|</span> EAT ¥200억 <span>|</span> 배당 105엔</div>
+        </div>
+      </div>
+
+      <!-- Q1 2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-teal-900 text-teal-200">Q1 2025</span>
+            <span class="text-sm font-medium">2025년 5월 7일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 1~3월</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출수익</div><div class="ef-val text-teal-300">¥1,140억</div><div class="ef-sub">YoY -14.2%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT</div><div class="ef-val text-green-300">¥18억</div><div class="ef-sub">마진 1.6%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EAT</div><div class="ef-val text-yellow-300">¥2억</div><div class="ef-sub">전년(러시아손실 제외) +</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주</div><div class="ef-val text-gray-200">¥1,207억</div><div class="ef-sub">YoY -11.8%</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>"미국 추가관세 영향은 경미. 서차지로 대응 완료. 4월 7일부터 고객과 계약조건 개정"</li>
+            <li>"미국 4월 수주 호조. 유럽에서도 경기 자극책·세제 우대가 본격화" — 하반기 회복 기대</li>
+            <li>기계 평균 수주 단가 78.5백만엔/489천EUR (+10%↑) — MX 전략으로 단가 상승 지속</li>
+            <li>연간 가이던스 유지 (매출 5,100억엔, EBIT 380억엔)</li>
+          </ul>
+          <div class="ec-guidance">연간 가이던스 유지 <span>|</span> 매출 ¥5,100억 <span>|</span> EBIT ¥380억 (율 7.5%) <span>|</span> EAT ¥200억</div>
+        </div>
+      </div>
+
+      <!-- Q2 2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-teal-900 text-teal-200">H1 2025</span>
+            <span class="text-sm font-medium">2025년 8월 1일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 1~6월 (상반기)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출수익 (H1)</div><div class="ef-val text-teal-300">¥2,275억</div><div class="ef-sub">YoY -13.7%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT (H1)</div><div class="ef-val text-green-300">¥65억</div><div class="ef-sub">마진 2.9%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EAT (H1)</div><div class="ef-val text-yellow-300">¥21억</div><div class="ef-sub">YoY 흑전</div></div>
+            <div class="ec-fin-item"><div class="ef-label">Q2 수주</div><div class="ef-val text-green-400">¥1,279억</div><div class="ef-sub">QoQ +6%↑ 반전</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>Q2(4~6월) 단독 수주 전분기 대비 +6.0% 반등 — 회복 기조 진입</li>
+            <li>기계 평균 수주 단가 80.8백만엔/498천EUR (+14%↑). 데이터센터향 대형 수주 가세</li>
+            <li>"미주가 과거 피크 수준 경신. 유럽·중국·인도 투자의욕도 회복. 하반기부터 본격 기여 전망"</li>
+            <li>독일: 기업 설비투자 가속상각 결정. 이탈리아: 에너지 절약 세제공제 도입. 헝가리: 중소기업 최대 30% 보조금</li>
+            <li>연간 가이던스 유지</li>
+          </ul>
+          <div class="ec-guidance">연간 가이던스 유지 <span>|</span> 매출 ¥5,100억 <span>|</span> EBIT ¥380억 <span>|</span> EAT ¥200억</div>
+        </div>
+      </div>
+
+      <!-- Q3 2025 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-teal-900 text-teal-200">9M 2025</span>
+            <span class="text-sm font-medium">2025년 10월 30일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 1~9월 (3분기 누계)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출수익 (9M)</div><div class="ef-val text-teal-300">¥3,431억</div><div class="ef-sub">YoY -11.6%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT (9M)</div><div class="ef-val text-green-300">¥115억</div><div class="ef-sub">마진 3.4%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EAT (9M)</div><div class="ef-val text-yellow-300">¥210억</div><div class="ef-sub">보험금 ¥169억 포함</div></div>
+            <div class="ec-fin-item"><div class="ef-label">Q3 수주</div><div class="ef-val text-green-400">¥1,333억</div><div class="ef-sub">YoY +16.2%↑ 본격 회복</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>Q3(7~9월) 수주 전년동기比 +16% — 연결수주가 누계 기준으로도 전년동기 대비 플러스 전환</li>
+            <li>러시아 보험금 ¥169억(102백만EUR) 9월 수령 → EAT 급증(일회성, 비계속사업 이익)</li>
+            <li>글로벌 납기 혼란 3중고: ①미국 관세 교섭 장기화 ②유럽제 신형 CNC 전환 납기 지연 ③경제안보 수출허가 심사 장기화</li>
+            <li>EMO 하노버(9월): SDMT(Software-Defined Machine Tools), AI 기반 가공 최적화 소프트웨어 발표</li>
+            <li>OPEN MIND Technologies AG(독일)와 글로벌 CAD/CAM·MES 판매 계약 체결(7월)</li>
+          </ul>
+          <div class="ec-guidance" style="border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);color:#fca5a5;">가이던스 하향 <span style="color:#64748b">|</span> 매출 ¥5,050억 (기존 5,100억) <span style="color:#64748b">|</span> EBIT ¥180억 (기존 380억, 반토막) <span style="color:#64748b">|</span> EAT ¥220억 (보험금으로 상향)</div>
+        </div>
+      </div>
+
+      <!-- FY2025 연간 -->
+      <div class="ec-card">
+        <button class="ec-toggle" onclick="toggleEC(this)">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="ec-qbadge bg-teal-800 text-teal-100">FY2025 연간</span>
+            <span class="text-sm font-medium">2026년 2월 10일 발표</span>
+            <span class="text-xs text-gray-500">대상 기간: 2025년 전체 (CY2025)</span>
+          </div>
+          <span class="ec-arr text-gray-500 text-xs">▼</span>
+        </button>
+        <div class="ec-body" style="display:none;">
+          <div class="ec-fin">
+            <div class="ec-fin-item"><div class="ef-label">매출수익</div><div class="ef-val text-teal-300">¥5,150억</div><div class="ef-sub">YoY -4.8%</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EBIT</div><div class="ef-val text-green-300">¥190억</div><div class="ef-sub">마진 3.7%, -57%↓</div></div>
+            <div class="ec-fin-item"><div class="ef-label">EAT(친귀속)</div><div class="ef-val text-yellow-300">¥240억</div><div class="ef-sub">보험금 ¥172억 포함</div></div>
+            <div class="ec-fin-item"><div class="ef-label">수주</div><div class="ef-val text-green-400">¥5,234억</div><div class="ef-sub">YoY +5.5%↑ 반전</div></div>
+          </div>
+          <ul class="ec-comments">
+            <li>연간 수주 +5.5% 반전. Q4(10~12월) 단독 수주 전년동기比 +24% — 반도체·통신기기향 신규 수요 추가</li>
+            <li>글로벌 납기 혼란(관세·CNC 전환·수출허가)이 Q4에 해소 → 계획을 약간 상회하는 매출 달성</li>
+            <li>EBIT -57%: 매출감소 -¥188억, 인재투자 -¥70억, 구형 부품 폐기(일회성) -¥28억이 주된 요인</li>
+            <li>기계 평균 수주 단가 79.6백만엔/471천EUR (+12%) — MX 전략으로 고단가 유지</li>
+            <li>수주잔고 ¥2,400억 (전년말 대비 +¥220억) → FY2026 증수 확도 상승</li>
+            <li>"2030년 목표(매출 8,000억엔, EBIT율 15%) 오가닉 성장으로 달성을 확신"</li>
+          </ul>
+          <div class="ec-guidance">FY2026 가이던스 <span>|</span> 매출 ¥5,350억 (+3.9%) <span>|</span> EBIT ¥225억 (+18.6%) <span>|</span> 계속영업 EAT ¥105억 (+51%) <span>|</span> 배당 105엔 유지</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TAB 6: DN솔루션즈
+     ============================================================ -->
+<div id="tab-dn" class="tab-content">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+    <div>
+      <h2 class="text-lg font-bold text-white">DN솔루션즈 <span class="text-gray-400 font-normal text-base">비상장 · DN오토모티브 자회사</span></h2>
+      <p class="text-xs text-gray-500 mt-0.5">KRW 백만원 · Calendar Quarter · DART 전자공시 연결재무제표 (DN오토모티브 007340) 기준</p>
+    </div>
+    <div class="bg-green-950 border border-green-800 text-green-300 px-4 py-2 rounded-lg text-xs">
+      DART 분기 데이터 (DN오토모티브 연결) · 2022Q1~
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+    <div class="card p-5">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">분기 매출 / 영업이익 (KRW 억원)</h4>
+      <div class="chart-container" style="height:280px;"><canvas id="chartDN1"></canvas></div>
+    </div>
+    <div class="card p-5">
+      <h4 class="text-xs font-semibold text-gray-400 mb-3">영업이익률 / 순이익률 (%)</h4>
+      <div class="chart-container" style="height:280px;"><canvas id="chartDN2"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card p-5 mb-5">
+    <h4 class="text-xs font-semibold text-gray-400 mb-3">분기 순이익 (KRW 억원)</h4>
+    <div class="chart-container" style="height:220px;"><canvas id="chartDN3"></canvas></div>
+  </div>
+
+  <div class="card p-5 mb-4">
+    <h3 class="text-sm font-semibold text-gray-300 mb-4">분기 실적 요약 · Quarterly Summary</h3>
+    <div class="overflow-x-auto">
+      <table>
+        <thead><tr>
+          <th>Quarter</th><th>Revenue (KRW M)</th><th>Op Income (KRW M)</th><th>Net Income (KRW M)</th><th>OP Margin</th><th>Net Margin</th><th>YoY Rev</th>
+        </tr></thead>
+        <tbody id="tableDN"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note-box p-4 text-xs text-gray-400 leading-relaxed">
+    <strong class="text-gray-300">Data Note:</strong>
+    DN솔루션즈는 비상장 법인이나, 모회사 DN오토모티브(007340)의 DART 연결재무제표에서 분기별 실적을 추출했습니다.
+    2021년은 DN솔루션즈 편입 이전(DN오토모티브 단독 구조), 2022Q1부터 DN솔루션즈 포함 연결 수치.
+    Q1=분기보고서 직접값, Q2=반기보고서 누계 − Q1, Q3=분기보고서 누계 − H1, Q4=연간 − 9M 누계.
+    매출 단위: 백만원. 차트에서는 억원(×1/100) 단위 표시.
+    <br><br>
+    <strong class="text-gray-300">Company Background:</strong>
+    2016년 두산인프라코어(현 HD현대인프라코어)에서 분리, MBK파트너스가 인수. 현재 글로벌 공작기계 Top 5 메이커로
+    연간 매출 약 2.2조원 규모. 고수익성 구조(OP margin ~15-18%)가 특징. IPO 추진 중.
+  </div>
+</div>
+
+</div><!-- end main container -->
+
+<script>
+// ============================================================
+// DATA DEFINITIONS
+// ============================================================
+
+// Calendar quarter labels Q1 2021 through Q4 2025
+const calQtrs = [
+  '2021Q1','2021Q2','2021Q3','2021Q4',
+  '2022Q1','2022Q2','2022Q3','2022Q4',
+  '2023Q1','2023Q2','2023Q3','2023Q4',
+  '2024Q1','2024Q2','2024Q3','2024Q4',
+  '2025Q1','2025Q2','2025Q3','2025Q4',
+];
+
+// ---- OKUMA ----
+// Fiscal → calendar mapping:
+// FY Q4 (Jan-Mar) → CalQ1, FY Q1 (Apr-Jun) → CalQ2, FY Q2 (Jul-Sep) → CalQ3, FY Q3 (Oct-Dec) → CalQ4
+// Data given: Jan-Mar 2021 = Cal 2021Q1, Apr-Jun 2021 = Cal 2021Q2, ...
+const okumaData = {
+  labels: calQtrs,
+  revenue:    [35606,36353,41041,45339, 50076,49328,59571,58680, 60057,50591,59921,56778, 60704,45329,49918,53720, 57855,44646,60571,61291],
+  opIncome:   [2579,2088,3091,3776,    5507,4726,5831,6972,      7275,5544,6432,6246,       7142,3067,2561,4501,     4523,1600,4459,4383],
+  netIncome:  [1471,1632,2326,2937,    4684,4415,4821,4823,      5136,4653,4098,4335,       6295,2436,1144,3918,     2092,1409,3144,3990],
+  // Source: 決算短信 TDNET filings. *=누계에서 역산. 2021Q1·2025Q4는 미발표.
+  newOrders:  [null,44516,53378,61177, 56211,60236,60893,61091, 65249,48762,52724,52955, 49578,48267,50991,52718, 63651,54166,57598,55297],
+  backlog:    [null,57479,69816,85655, 91789,102697,104019,106429, 111621,109792,102595,98772, 87646,90585,91658,90655, 96452,105972,102999,103058],
+  // 2025Q4: 9M누계(173,114M)에서 Q1(63,651)+Q2(54,166) 역산. 잔고는 Dec31시점 103,058M. Source: FY2026 Q3決算短信 2026.2.4
+};
+
+// ---- MAKINO ----
+const makinoData = {
+  labels: calQtrs,
+  revenue:    [38636,36939,38401,47532, 63719,46481,56558,62459, 62487,53850,54665,54477, 62368,51868,56369,60557, 65422,55397,64024,70711],
+  opIncome:   [1004,920,1919,2356,      6106,1643,3761,6207,      5883,4267,3510,4380,      4216,2960,4616,5656,     5285,3201,6300,8175],
+  netIncome:  [1156,1247,2104,2509,     6182,2387,2953,5234,      5499,4595,3080,3595,      4711,3236,2546,4750,     3883,1247,5515,7267],
+  // Source: 決算短信 TDNET filings (ir.makino.co.jp). *=누계역산, ~est=YoY비율 추정.
+  // 2022Q2(73,547)·Q3(76,612) 확정값. 2021Q1-Q3, 2022Q1, 2023Q1은 추정치.
+  newOrders:  [35049,52161,61989,61080, 53770,73547,76612,53454, 45987,58133,50276,51280, 53687,53614,55051,60970, 68320,57141,67954,75393],
+  backlog:    [null,60953,84514,98063, null,115141,135194,126190, 109655,113969,109580,106384, 97702,99448,98129,98542, 101440,103184,107114,111795],
+};
+
+// ---- DMG MORI AG (EUR M) ----
+const dmgAGData = {
+  labels: calQtrs,
+  revenue:    [421.6,514.9,517.4,608.83, 561.0,567.3,573.5,679.37, 586.2,602.4,610.2,699.8, 551.5,545.2,500.1,631.49, 468.7,487.4,456.7,689.48],
+  opIncome:   [11.8,30.4,41.5,31.79,    55.9,45.7,58.6,35.67,      44.2,30.3,65.1,80.4,     47.6,58.0,43.4,88.07,    19.7,25.2,16.3,62.51],
+  netIncome:  [8.0,19.4,29.0,26.87,     39.6,28.3,40.1,33.28,      32.0,23.8,47.6,59.8,     -56.5,136.5,30.2,60.21,  15.3,16.8,12.5,34.55],
+  // Source: en.dmgmori-ag.com Annual/H1 Reports. *=역산. 수주잔고는 Jun·Dec·Sep2021만 공시.
+  // 2021H1=1248.7M(H1 2022 비교기간). 2023 Q1/Q2 IR 확정값 반영.
+  newOrders:  [589.8,659.0,679.9,588.6, 861.6,813.6,664.9,564.1, 787.4,674.3,598.9,523.0, 658.2,570.4,505.0,523.0, 562.3,579.4,590.0,608.5],
+  backlog:    [null,1122.9,1256.1,1208.9, null,1684.6,null,1613.4, null,1780.0,null,1535.5, null,1588.8,null,1452.0, null,1576.1,null,1573.3],
+};
+
+// ---- DMG MORI JP (JPY M) ----
+// Source: DMG MORI IR (TDnet), Q3/Q4 2025 역산 (누적 공시 기준)
+// Q3 순이익 18,942M에는 러시아 공장 보험금 일회성 16,875M 포함
+const dmgJPData = {
+  labels: calQtrs,
+  revenue:    [81122,97123,96025,121740, 107262,110946,114824,141739, 123225,126312,130622,159360, 132851,130865,124117,154190, 116097,111390,115642,171847],
+  opIncome:   [3986,6225,6525,4183,      9452,8237,9067,15308,        9697,12862,13057,18536,       10773,12440,6792,9212,       1819,4692,5027,7438],
+  netIncome:  [1812,4285,3782,3580,      6271,5026,5279,8830,         6297,8611,8111,10924,         -8661,7728,1539,7094,        168,1892,18942,3031],
+  // Source: DMG MORI IR 분기발표 (dmgmori.co.jp/ir). 2021Q1-Q4 실제 확정값.
+  // *=누계역산. 수주잔고는 분기말 기계수주잔고(機械受注残高).
+  newOrders:  [101400,117000,122000,115700, 150000,149300,132600,110400, 145300,130500,123700,120500, 136800,129900,114800,114500, 120700,127900,133300,141500],
+  backlog:    [124000,142000,168000,164000, 203000,244000,274000,254000, 269000,282000,280000,247000, 263000,273000,249000,218000, 223500,233200,254000,240000],
+};
+
+// ---- DN오토모티브 연결 (KRW M) — includes DN솔루션즈 from Q1 2022 ----
+// Source: DART 전자공시 (연결재무제표, 007340)
+// 2021: DN오토모티브 단독 구조 (DN솔루션즈 미포함), 2022~: DN솔루션즈 포함 연결
+const dnData = {
+  labels: calQtrs,
+  revenue:   [246496,228720,221536,234001, 626114,808974,848769,872519, 830111,831556,801303,806272, 780920,885167,848561,919894, 878713,909635,918734,968622],
+  opIncome:  [23174, 21581, 14495, 30395,  55126, 94845,138791,132766, 130807,127139,120552,111892, 123659,148595,129942,120720, 137676,121590,118686,149955],
+  netIncome: [22338, 20197,  9463, 33082,  28155, 48102, 83839, 24803,  77439, 74597, 55912, 75497,  76873,110106, 61199, 70051,  86829, 53461, 78481,106214],
+};
+
+// ============================================================
+// CHART DEFAULTS
+// ============================================================
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#2d3348';
+Chart.defaults.font.family = "'Segoe UI', -apple-system, sans-serif";
+Chart.defaults.font.size = 11;
+
+const COLORS = {
+  okuma:   { main: '#60a5fa', dim: 'rgba(96,165,250,0.15)', bar: 'rgba(96,165,250,0.7)' },
+  makino:  { main: '#fb923c', dim: 'rgba(251,146,60,0.15)',  bar: 'rgba(251,146,60,0.7)' },
+  dmgAG:   { main: '#c084fc', dim: 'rgba(192,132,252,0.15)',bar: 'rgba(192,132,252,0.7)'},
+  dmgJP:   { main: '#2dd4bf', dim: 'rgba(45,212,191,0.15)', bar: 'rgba(45,212,191,0.7)' },
+  dn:      { main: '#f87171', dim: 'rgba(248,113,113,0.15)',bar: 'rgba(248,113,113,0.7)' },
+  opLine:  '#34d399',
+  netBar:  'rgba(251,191,36,0.7)',
+};
+
+const commonScaleOpts = {
+  grid: { color: 'rgba(255,255,255,0.04)' },
+  ticks: { maxRotation: 45, font: { size: 10 } }
+};
+
+function tooltipDefaults(unit='') {
+  return {
+    backgroundColor: '#1e2130',
+    borderColor: '#3d4561',
+    borderWidth: 1,
+    titleColor: '#e2e8f0',
+    bodyColor: '#94a3b8',
+    padding: 10,
+    callbacks: {
+      label: function(ctx) {
+        let v = ctx.parsed.y;
+        if (v === null || v === undefined) return ' N/A';
+        return ` ${ctx.dataset.label}: ${v.toLocaleString()}${unit}`;
+      }
+    }
+  };
+}
+
+function makeBarLineChart(canvasId, labels, barData, lineData, barLabel, lineLabel, color, unit='') {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar', label: barLabel, data: barData,
+          backgroundColor: color.bar, borderColor: color.main,
+          borderWidth: 1, yAxisID: 'y', order: 2,
+          spanGaps: true,
+        },
+        {
+          type: 'line', label: lineLabel, data: lineData,
+          borderColor: COLORS.opLine, backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 3, pointBackgroundColor: COLORS.opLine,
+          yAxisID: 'y2', order: 1, tension: 0.3,
+          spanGaps: true,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: tooltipDefaults(unit) },
+      scales: {
+        x: { ...commonScaleOpts },
+        y: { ...commonScaleOpts, position: 'left', title: { display: false } },
+        y2: { ...commonScaleOpts, position: 'right', grid: { drawOnChartArea: false }, title: { display: false } }
+      }
+    }
+  });
+}
+
+function makeLineChart(canvasId, labels, datasets) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: tooltipDefaults('%') },
+      scales: {
+        x: { ...commonScaleOpts },
+        y: { ...commonScaleOpts, title: { display: false } }
+      }
+    }
+  });
+}
+
+function makeBarChart(canvasId, labels, datasets, unit='') {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { boxWidth: 10, font: { size: 10 } } }, tooltip: tooltipDefaults(unit) },
+      scales: {
+        x: { ...commonScaleOpts },
+        y: { ...commonScaleOpts }
+      }
+    }
+  });
+}
+
+// Compute op margin array
+function computeMargin(revenue, opIncome) {
+  return revenue.map((r, i) => {
+    const op = opIncome[i];
+    if (r === null || op === null || r === 0) return null;
+    return parseFloat((op / r * 100).toFixed(2));
+  });
+}
+
+// YoY growth
+function computeYoY(arr) {
+  return arr.map((v, i) => {
+    if (i < 4 || v === null || arr[i-4] === null || arr[i-4] === 0) return null;
+    return parseFloat(((v - arr[i-4]) / arr[i-4] * 100).toFixed(1));
+  });
+}
+
+// Aggregate annual from quarterly (4 per year, starting index 0=2021Q1)
+function annualSums(quarterly) {
+  const years = ['2021','2022','2023','2024','2025'];
+  return years.map((y, i) => {
+    const slice = quarterly.slice(i*4, i*4+4);
+    const valid = slice.filter(v => v !== null);
+    if (valid.length === 0) return null;
+    return valid.reduce((a,b) => a+b, 0);
+  });
+}
+
+// Format number
+function fmt(n, dec=0) {
+  if (n === null || n === undefined) return '—';
+  return n.toLocaleString('en-US', { maximumFractionDigits: dec });
+}
+
+function pctStr(a, b) {
+  if (!a || !b) return '—';
+  return (a/b*100).toFixed(1) + '%';
+}
+
+function yoyPill(curr, prev) {
+  if (!curr || !prev) return '—';
+  const pct = ((curr - prev) / prev * 100).toFixed(1);
+  const cls = pct >= 0 ? 'pill pill-up' : 'pill pill-down';
+  return `<span class="${cls}">${pct >= 0 ? '+' : ''}${pct}%</span>`;
+}
+
+// ============================================================
+// OVERVIEW CHARTS
+// ============================================================
+
+// YoY Revenue Growth lines
+const okumaYoY  = computeYoY(okumaData.revenue);
+const makinoYoY = computeYoY(makinoData.revenue);
+const dmgAGYoY  = computeYoY(dmgAGData.revenue);
+const dmgJPYoY  = computeYoY(dmgJPData.revenue);
+const dnYoY     = computeYoY(dnData.revenue);
+
+function lineDataset(label, data, color) {
+  return {
+    label, data,
+    borderColor: color, backgroundColor: 'transparent',
+    borderWidth: 2, pointRadius: 3, pointBackgroundColor: color,
+    tension: 0.3, spanGaps: true,
+  };
+}
+
+new Chart(document.getElementById('chartOverviewGrowth').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: calQtrs,
+    datasets: [
+      lineDataset('Okuma', okumaYoY, COLORS.okuma.main),
+      lineDataset('Makino', makinoYoY, COLORS.makino.main),
+      lineDataset('DMG MORI AG', dmgAGYoY, COLORS.dmgAG.main),
+      lineDataset('DMG MORI 6141', dmgJPYoY, COLORS.dmgJP.main),
+      lineDataset('DN솔루션즈', dnYoY, COLORS.dn.main),
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { boxWidth: 10, font: { size: 10 } } },
+      tooltip: {
+        backgroundColor: '#1e2130', borderColor: '#3d4561', borderWidth: 1,
+        titleColor: '#e2e8f0', bodyColor: '#94a3b8', padding: 10,
+        callbacks: {
+          label: ctx => {
+            const v = ctx.parsed.y;
+            if (v === null) return ` ${ctx.dataset.label}: N/A`;
+            return ` ${ctx.dataset.label}: ${v >= 0 ? '+' : ''}${v}%`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: commonScaleOpts,
+      y: { ...commonScaleOpts, title: { display: true, text: 'YoY %', color: '#64748b' }, max: 50 }
+    }
+  }
+});
+
+// OP Margin lines
+const okumaMargin  = computeMargin(okumaData.revenue, okumaData.opIncome);
+const makinoMargin = computeMargin(makinoData.revenue, makinoData.opIncome);
+const dmgAGMargin  = computeMargin(dmgAGData.revenue, dmgAGData.opIncome);
+const dmgJPMargin  = computeMargin(dmgJPData.revenue, dmgJPData.opIncome);
+const dnMargin     = computeMargin(dnData.revenue, dnData.opIncome);
+
+new Chart(document.getElementById('chartOverviewMargin').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: calQtrs,
+    datasets: [
+      lineDataset('Okuma', okumaMargin, COLORS.okuma.main),
+      lineDataset('Makino', makinoMargin, COLORS.makino.main),
+      lineDataset('DMG MORI AG', dmgAGMargin, COLORS.dmgAG.main),
+      lineDataset('DMG MORI 6141', dmgJPMargin, COLORS.dmgJP.main),
+      lineDataset('DN솔루션즈', dnMargin, COLORS.dn.main),
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { boxWidth: 10, font: { size: 10 } } },
+      tooltip: {
+        backgroundColor: '#1e2130', borderColor: '#3d4561', borderWidth: 1,
+        titleColor: '#e2e8f0', bodyColor: '#94a3b8', padding: 10,
+        callbacks: {
+          label: ctx => {
+            const v = ctx.parsed.y;
+            if (v === null) return ` ${ctx.dataset.label}: N/A`;
+            return ` ${ctx.dataset.label}: ${v}%`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: commonScaleOpts,
+      y: { ...commonScaleOpts, title: { display: true, text: 'OP Margin %', color: '#64748b' } }
+    }
+  }
+});
+
+// Revenue size comparison — all to USD M
+const okumaRevUSD  = okumaData.revenue.map(v => v === null ? null : parseFloat((v/150).toFixed(1)));
+const makinoRevUSD = makinoData.revenue.map(v => v === null ? null : parseFloat((v/150).toFixed(1)));
+const dmgAGRevUSD  = dmgAGData.revenue.map(v => v === null ? null : parseFloat((v*1.1).toFixed(1)));
+const dmgJPRevUSD  = dmgJPData.revenue.map(v => v === null ? null : parseFloat((v/150).toFixed(1)));
+const dnRevUSD     = dnData.revenue.map(v => v === null ? null : parseFloat((v/1300).toFixed(1)));
+
+// Op Income — all to USD M
+const okumaOpUSD  = okumaData.opIncome.map(v => v === null ? null : parseFloat((v/150).toFixed(1)));
+const makinoOpUSD = makinoData.opIncome.map(v => v === null ? null : parseFloat((v/150).toFixed(1)));
+const dmgAGOpUSD  = dmgAGData.opIncome.map(v => v === null ? null : parseFloat((v*1.1).toFixed(1)));
+const dmgJPOpUSD  = dmgJPData.opIncome.map(v => v === null ? null : parseFloat((v/150).toFixed(1)));
+const dnOpUSD     = dnData.opIncome.map(v => v === null ? null : parseFloat((v/1300).toFixed(1)));
+
+new Chart(document.getElementById('chartOverviewRevUSD').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: calQtrs,
+    datasets: [
+      lineDataset('Okuma',        okumaRevUSD,  COLORS.okuma.main),
+      lineDataset('Makino',       makinoRevUSD, COLORS.makino.main),
+      lineDataset('DMG MORI AG',  dmgAGRevUSD,  COLORS.dmgAG.main),
+      lineDataset('DMG MORI 6141',dmgJPRevUSD,  COLORS.dmgJP.main),
+      lineDataset('DN솔루션즈',    dnRevUSD,     COLORS.dn.main),
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { boxWidth: 10, font: { size: 10 } } },
+      tooltip: {
+        backgroundColor: '#1e2130', borderColor: '#3d4561', borderWidth: 1,
+        titleColor: '#e2e8f0', bodyColor: '#94a3b8', padding: 10,
+        callbacks: {
+          label: ctx => {
+            const v = ctx.parsed.y;
+            if (v === null) return ` ${ctx.dataset.label}: N/A`;
+            return ` ${ctx.dataset.label}: $${v.toLocaleString()}M`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: commonScaleOpts,
+      y: { ...commonScaleOpts, title: { display: true, text: 'USD M', color: '#64748b' } }
+    }
+  }
+});
+
+new Chart(document.getElementById('chartOverviewOpIncome').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: calQtrs,
+    datasets: [
+      lineDataset('Okuma',         okumaOpUSD,  COLORS.okuma.main),
+      lineDataset('Makino',        makinoOpUSD, COLORS.makino.main),
+      lineDataset('DMG MORI AG',   dmgAGOpUSD,  COLORS.dmgAG.main),
+      lineDataset('DMG MORI 6141', dmgJPOpUSD,  COLORS.dmgJP.main),
+      lineDataset('DN솔루션즈',     dnOpUSD,     COLORS.dn.main),
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { boxWidth: 10, font: { size: 10 } } },
+      tooltip: {
+        backgroundColor: '#1e2130', borderColor: '#3d4561', borderWidth: 1,
+        titleColor: '#e2e8f0', bodyColor: '#94a3b8', padding: 10,
+        callbacks: {
+          label: ctx => {
+            const v = ctx.parsed.y;
+            if (v === null) return ` ${ctx.dataset.label}: N/A`;
+            return ` ${ctx.dataset.label}: $${v.toLocaleString()}M`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: commonScaleOpts,
+      y: { ...commonScaleOpts, title: { display: true, text: 'USD M', color: '#64748b' } }
+    }
+  }
+});
+
+// ============================================================
+// OKUMA CHARTS
+// ============================================================
+makeBarLineChart('chartOkuma1', calQtrs, okumaData.revenue, okumaData.opIncome, 'Revenue', 'Op Income', COLORS.okuma, 'M');
+makeLineChart('chartOkuma2', calQtrs, [lineDataset('OP Margin', okumaMargin, COLORS.okuma.main)]);
+makeBarChart('chartOkuma3', calQtrs, [{
+  label: 'Net Income', data: okumaData.netIncome,
+  backgroundColor: 'rgba(251,191,36,0.65)', borderColor: 'rgba(251,191,36,0.9)', borderWidth: 1, spanGaps: true
+}], 'M');
+
+// Okuma annual table
+(function(){
+  const revA   = annualSums(okumaData.revenue);
+  const opA    = annualSums(okumaData.opIncome);
+  const netA   = annualSums(okumaData.netIncome);
+  const years  = ['FY2021','FY2022','FY2023','FY2024','FY2025'];
+  const tbody  = document.getElementById('tableOkuma');
+  years.forEach((y,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${y}</td>
+      <td>${fmt(revA[i])}</td>
+      <td>${fmt(opA[i])}</td>
+      <td>${fmt(netA[i])}</td>
+      <td>${pctStr(opA[i],revA[i])}</td>
+      <td>${pctStr(netA[i],revA[i])}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  // Guidance row
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="text-blue-300 font-semibold">FY2026E</td><td class="text-blue-300">220,000</td><td class="text-green-300">14,000</td><td class="text-cyan-300">10,000</td><td class="text-green-300">6.4%</td><td class="text-cyan-300">4.5%</td>`;
+  tbody.appendChild(tr);
+})();
+
+// ============================================================
+// MAKINO CHARTS
+// ============================================================
+const makinoMarginArr = computeMargin(makinoData.revenue, makinoData.opIncome);
+makeBarLineChart('chartMakino1', calQtrs, makinoData.revenue, makinoData.opIncome, 'Revenue', 'Op Income', COLORS.makino, 'M');
+makeLineChart('chartMakino2', calQtrs, [lineDataset('OP Margin', makinoMarginArr, COLORS.makino.main)]);
+makeBarChart('chartMakino3', calQtrs, [{
+  label: 'Net Income', data: makinoData.netIncome,
+  backgroundColor: 'rgba(251,191,36,0.65)', borderColor: 'rgba(251,191,36,0.9)', borderWidth: 1, spanGaps: true
+}], 'M');
+
+(function(){
+  const revA  = annualSums(makinoData.revenue);
+  const opA   = annualSums(makinoData.opIncome);
+  const netA  = annualSums(makinoData.netIncome);
+  const years = ['FY2021','FY2022','FY2023','FY2024','FY2025'];
+  const tbody = document.getElementById('tableMakino');
+  years.forEach((y,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${y}</td><td>${fmt(revA[i])}</td><td>${fmt(opA[i])}</td><td>${fmt(netA[i])}</td><td>${pctStr(opA[i],revA[i])}</td><td>${pctStr(netA[i],revA[i])}</td>`;
+    tbody.appendChild(tr);
+  });
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="text-orange-300 font-semibold">FY2026E</td><td class="text-orange-300">252,000</td><td class="text-green-300">23,800</td><td class="text-cyan-300">19,400</td><td class="text-green-300">9.4%</td><td class="text-cyan-300">7.7%</td>`;
+  tbody.appendChild(tr);
+})();
+
+// ============================================================
+// DMG MORI AG CHARTS
+// ============================================================
+const dmgAGMarginArr = computeMargin(dmgAGData.revenue, dmgAGData.opIncome);
+makeBarLineChart('chartDmgAG1', calQtrs, dmgAGData.revenue, dmgAGData.opIncome, 'Revenue', 'EBIT', COLORS.dmgAG, 'M');
+makeLineChart('chartDmgAG2', calQtrs, [lineDataset('EBIT Margin', dmgAGMarginArr, COLORS.dmgAG.main)]);
+makeBarChart('chartDmgAG3', calQtrs, [{
+  label: 'Net Income', data: dmgAGData.netIncome,
+  backgroundColor: dmgAGData.netIncome.map(v => v < 0 ? 'rgba(248,113,113,0.65)' : 'rgba(251,191,36,0.65)'),
+  borderColor: dmgAGData.netIncome.map(v => v < 0 ? 'rgba(248,113,113,0.9)' : 'rgba(251,191,36,0.9)'),
+  borderWidth: 1, spanGaps: true
+}], 'M');
+
+(function(){
+  const years  = ['2021','2022','2023','2024','2025'];
+  const revA   = annualSums(dmgAGData.revenue);
+  const opA    = annualSums(dmgAGData.opIncome);
+  const netA   = annualSums(dmgAGData.netIncome);
+  const tbody  = document.getElementById('tableDmgAG');
+  years.forEach((y,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${y}</td><td>${fmt(revA[i],1)}</td><td>${fmt(opA[i],1)}</td><td>${fmt(netA[i],1)}</td><td>${pctStr(opA[i],revA[i])}</td><td>${pctStr(netA[i],revA[i])}</td>`;
+    tbody.appendChild(tr);
+  });
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="text-purple-300 font-semibold">2026E</td><td class="text-purple-300">2,000–2,200</td><td class="text-green-300">90–110</td><td class="text-gray-400">N/A</td><td class="text-green-300">~4.5–5.5%</td><td class="text-gray-400">—</td>`;
+  tbody.appendChild(tr);
+})();
+
+// ============================================================
+// DMG MORI JP CHARTS
+// ============================================================
+const dmgJPMarginArr = computeMargin(dmgJPData.revenue, dmgJPData.opIncome);
+makeBarLineChart('chartDmgJP1', calQtrs, dmgJPData.revenue, dmgJPData.opIncome, 'Revenue', 'Op Income', COLORS.dmgJP, 'M');
+makeLineChart('chartDmgJP2', calQtrs, [lineDataset('OP Margin', dmgJPMarginArr, COLORS.dmgJP.main)]);
+makeBarChart('chartDmgJP3', calQtrs, [{
+  label: 'Net Income', data: dmgJPData.netIncome,
+  backgroundColor: dmgJPData.netIncome.map(v => v === null ? 'transparent' : v < 0 ? 'rgba(248,113,113,0.65)' : 'rgba(251,191,36,0.65)'),
+  borderColor: dmgJPData.netIncome.map(v => v === null ? 'transparent' : v < 0 ? 'rgba(248,113,113,0.9)' : 'rgba(251,191,36,0.9)'),
+  borderWidth: 1, spanGaps: true
+}], 'M');
+
+(function(){
+  const years  = ['2021','2022','2023','2024','2025'];
+  const revA   = annualSums(dmgJPData.revenue);
+  const opA    = annualSums(dmgJPData.opIncome);
+  const netA   = annualSums(dmgJPData.netIncome);
+  const tbody  = document.getElementById('tableDmgJP');
+  years.forEach((y,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${y}</td><td>${fmt(revA[i])}</td><td>${fmt(opA[i])}</td><td>${fmt(netA[i])}</td><td>${pctStr(opA[i],revA[i])}</td><td>${pctStr(netA[i],revA[i])}</td>`;
+    tbody.appendChild(tr);
+  });
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="text-teal-300 font-semibold">2026E</td><td class="text-teal-300">535,000</td><td class="text-green-300">22,500</td><td class="text-cyan-300">10,500</td><td class="text-green-300">4.2%</td><td class="text-cyan-300">2.0%</td>`;
+  tbody.appendChild(tr);
+})();
+
+// ============================================================
+// DN솔루션즈 CHARTS  (quarterly — DART DN오토모티브 연결)
+// ============================================================
+// Convert KRW M → 억원 (÷100)
+const dnRevEok   = dnData.revenue.map(v => v/100);
+const dnOpEok    = dnData.opIncome.map(v => v/100);
+const dnNetEok   = dnData.netIncome.map(v => v/100);
+const dnOpMargin = dnData.revenue.map((r,i) => parseFloat((dnData.opIncome[i]/r*100).toFixed(1)));
+const dnNetMargin= dnData.revenue.map((r,i) => parseFloat((dnData.netIncome[i]/r*100).toFixed(1)));
+
+makeBarLineChart('chartDN1', calQtrs, dnRevEok, dnOpEok, '매출 (억원)', '영업이익 (억원)', COLORS.dn, '억');
+makeLineChart('chartDN2', calQtrs, [
+  { label: '영업이익률', data: dnOpMargin, borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.08)', borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: true, spanGaps: true },
+  { label: '순이익률',   data: dnNetMargin, borderColor: '#fbbf24', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 3, tension: 0.3, borderDash: [5,3], spanGaps: true },
+]);
+makeBarChart('chartDN3', calQtrs, [{
+  label: '순이익 (억원)', data: dnNetEok,
+  backgroundColor: 'rgba(251,191,36,0.65)', borderColor: 'rgba(251,191,36,0.9)', borderWidth: 1, spanGaps: true
+}], '억');
+
+// DN quarterly table
+(function(){
+  const tbody = document.getElementById('tableDN');
+  calQtrs.forEach((q,i) => {
+    const prevRev = i >= 4 ? dnData.revenue[i-4] : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${q}</td>
+      <td>${fmt(dnData.revenue[i])}</td>
+      <td>${fmt(dnData.opIncome[i])}</td>
+      <td>${fmt(dnData.netIncome[i])}</td>
+      <td>${pctStr(dnData.opIncome[i], dnData.revenue[i])}</td>
+      <td>${pctStr(dnData.netIncome[i], dnData.revenue[i])}</td>
+      <td>${yoyPill(dnData.revenue[i], prevRev)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+})();
+
+// ============================================================
+// ORDERS & BACKLOG CHARTS
+// ============================================================
+
+function makeOrdersChart(canvasId, labels, ordersData, color, unit) {
+  const yoy = computeYoY(ordersData);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'New Orders',
+          data: ordersData,
+          backgroundColor: color.bar,
+          borderColor: color.main,
+          borderWidth: 1,
+          spanGaps: true,
+          yAxisID: 'y',
+          order: 2
+        },
+        {
+          type: 'line',
+          label: 'YoY %',
+          data: yoy,
+          borderColor: '#34d399',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 2,
+          tension: 0.3,
+          spanGaps: true,
+          yAxisID: 'y2',
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { boxWidth: 10, font: { size: 10 } } },
+        tooltip: {
+          backgroundColor: '#1e2130', borderColor: '#3d4561', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#94a3b8', padding: 10,
+          callbacks: {
+            label: function(ctx) {
+              const v = ctx.parsed.y;
+              if (v === null || v === undefined) return ' N/A';
+              if (ctx.datasetIndex === 1) return ` YoY: ${v.toFixed(1)}%`;
+              return ` ${ctx.dataset.label}: ${v.toLocaleString()}${unit}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ...commonScaleOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { ...commonScaleOpts, title: { display: true, text: unit === 'M' ? 'EUR M' : 'JPY M', color: '#64748b', font: { size: 10 } } },
+        y2: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { font: { size: 9 }, callback: v => v + '%' },
+          title: { display: true, text: 'YoY %', color: '#34d399', font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+function makeBacklogChart(canvasId, labels, backlogData, color, unit) {
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Backlog',
+        data: backlogData,
+        borderColor: color.main,
+        backgroundColor: color.dim,
+        borderWidth: 2.5,
+        pointRadius: 3,
+        tension: 0.3,
+        fill: true,
+        spanGaps: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { boxWidth: 10, font: { size: 10 } } },
+        tooltip: tooltipDefaults(unit)
+      },
+      scales: {
+        x: { ...commonScaleOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { ...commonScaleOpts, title: { display: true, text: unit === 'M' ? 'EUR M' : 'JPY M', color: '#64748b', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// Okuma orders & backlog
+makeOrdersChart('chartOkumaOrders', calQtrs, okumaData.newOrders, COLORS.okuma, 'M');
+makeBacklogChart('chartOkumaBacklog', calQtrs, okumaData.backlog, COLORS.okuma, 'M');
+
+// Makino orders & backlog
+makeOrdersChart('chartMakinoOrders', calQtrs, makinoData.newOrders, COLORS.makino, 'M');
+makeBacklogChart('chartMakinoBacklog', calQtrs, makinoData.backlog, COLORS.makino, 'M');
+
+// DMG MORI AG orders & backlog
+makeOrdersChart('chartDmgAGOrders', calQtrs, dmgAGData.newOrders, COLORS.dmgAG, 'M');
+makeBacklogChart('chartDmgAGBacklog', calQtrs, dmgAGData.backlog, COLORS.dmgAG, 'M');
+
+// DMG MORI JP orders & backlog
+makeOrdersChart('chartDmgJPOrders', calQtrs, dmgJPData.newOrders, COLORS.dmgJP, 'M');
+makeBacklogChart('chartDmgJPBacklog', calQtrs, dmgJPData.backlog, COLORS.dmgJP, 'M');
+
+// ============================================================
+// MARKET CAP TREND CHART
+// ============================================================
+(function(){
+  const mcQtrs = [
+    '21Q1','21Q2','21Q3','21Q4',
+    '22Q1','22Q2','22Q3','22Q4',
+    '23Q1','23Q2','23Q3','23Q4',
+    '24Q1','24Q2','24Q3','24Q4',
+    '25Q1','25Q2','25Q3','25Q4',
+    '26Q1'
+  ];
+  // Shares outstanding (M) — 2026.03 기준: Okuma 60.5M, Makino 23.39M, DMG MORI AG 78.82M, DMG MORI JP 139.3M
+  const priceJPY = {
+    okuma:  [2900,2858,2864,2696,2684,2639,2571,2442,3067,3948,3378,3121,3632,3656,3089,3440,3440,3702,3410,3663,3525],
+    makino: [4490,4633,4498,4250,3965,4318,4538,4430,4957,5697,6667,5952,6347,6830,5868,10749,11670,11509,11460,11040,11480],
+    dmgJP:  [1630,1781,1887,1772,1502,1510,1486,1581,2009,2242,2290,2432,3659,4241,3063,2582,2945,3378,3029,2636,2379]
+  };
+  const priceEUR = {
+    dmgAG: [46.05,45.05,44.08,43.42,41.97,39.45,37.12,41.43,42.62,44.19,43.13,45.87,45.23,45.58,47.30,46.38,46.10,45.90,46.40,47.00,47.90]
+  };
+  // DN오토모티브 (007340) 분기말 종가 KRW — 2024.9 5:1 액면분할 수정주가, 58.51M shares
+  // 2021Q1~2023Q3: DART 공시 월간 고저 중간값 or Digrin 배당락일 종가 (post-split adj.)
+  // 2023Q4~2025Q4: KIS API 실제 종가. 26Q1: 2026-03-31 KIS API
+  const dnAutoKRW = [
+    5980, 7864, 9540, 11859,   // 2021 Q1~Q4
+    13840, 10881, 13140, 12989, // 2022 Q1~Q4
+    14720, 18420, 16590, 14641, // 2023 Q1~Q4
+    16504, 15943, 20449, 18330, // 2024 Q1~Q4
+    20600, 22200, 22850, 24400, // 2025 Q1~Q4
+    38150                        // 2026 Q1 (2026-03-31)
+  ];
+  // 단위: 조원 (1조 = 1,000,000M KRW). JPY×9.3, EUR×1500, KRW 그대로
+  const toKRW_okumaJPY  = arr => arr.map(v => v !== null ? Math.round(60.5  * v * 9.3 / 1e6 * 10) / 10 : null);
+  const toKRW_makinoJPY = arr => arr.map(v => v !== null ? Math.round(23.39 * v * 9.3 / 1e6 * 10) / 10 : null);
+  const toKRW_dmgAGEUR  = arr => arr.map(v => v !== null ? Math.round(78.82 * v * 1500 / 1e6 * 10) / 10 : null);
+  const toKRW_dmgJPJPY  = arr => arr.map(v => v !== null ? Math.round(139.3 * v * 9.3 / 1e6 * 10) / 10 : null);
+  const toKRW_dnAutoKRW = arr => arr.map(v => v !== null ? Math.round(58.51 * v / 1e6 * 10) / 10 : null);
+
+  new Chart(document.getElementById('chartOverviewMktCap').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: mcQtrs,
+      datasets: [
+        { label: 'Okuma (6103)',        data: toKRW_okumaJPY(priceJPY.okuma),    borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.08)',  borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'Makino (6135)',       data: toKRW_makinoJPY(priceJPY.makino),  borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)',  borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'DMG MORI AG (GIL)',  data: toKRW_dmgAGEUR(priceEUR.dmgAG),    borderColor: '#c084fc', backgroundColor: 'rgba(192,132,252,0.08)', borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'DMG MORI JP (6141)', data: toKRW_dmgJPJPY(priceJPY.dmgJP),   borderColor: '#2dd4bf', backgroundColor: 'rgba(45,212,191,0.08)',  borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'DN오토모티브 (007340)', data: toKRW_dnAutoKRW(dnAutoKRW),       borderColor: '#fb7185', backgroundColor: 'rgba(251,113,133,0.08)', borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { boxWidth: 10, font: { size: 11 }, color: '#94a3b8' } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}조원`
+          }
+        }
+      },
+      scales: {
+        x: { ...commonScaleOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: {
+          ...commonScaleOpts,
+          min: 0,
+          title: { display: true, text: 'Market Cap (조원)', color: '#64748b', font: { size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
+})();
+
+// ============================================================
+// ============================================================
+// STOCK PRICE INDEXED CHART
+// ============================================================
+(function(){
+  const stockQtrs = [
+    '21Q1','21Q2','21Q3','21Q4',
+    '22Q1','22Q2','22Q3','22Q4',
+    '23Q1','23Q2','23Q3','23Q4',
+    '24Q1','24Q2','24Q3','24Q4',
+    '25Q1','25Q2','25Q3','25Q4',
+    '26Q1'
+  ];
+  const raw = {
+    okuma:  [2900, 2858, 2864, 2696, 2684, 2639, 2571, 2442, 3067, 3948, 3378, 3121, 3632, 3656, 3089, 3440, 3440, 3702, 3410, 3663, 3525],
+    makino: [4490, 4633, 4498, 4250, 3965, 4318, 4538, 4430, 4957, 5697, 6667, 5952, 6347, 6830, 5868, 10749, 11670, 11509, 11460, 11040, 11480],
+    dmgAG:  [46.05, 45.05, 44.08, 43.42, 41.97, 39.45, 37.12, 41.43, 42.62, 44.19, 43.13, 45.87, 45.23, 45.58, 47.30, 46.38, 46.10, 45.90, 46.40, 47.00, 47.90],
+    dmgJP:  [1630, 1781, 1887, 1772, 1502, 1510, 1486, 1581, 2009, 2242, 2290, 2432, 3659, 4241, 3063, 2582, 2945, 3378, 3029, 2636, 2379]
+  };
+  const idx = arr => arr.map(v => v !== null ? Math.round(v / arr[0] * 100 * 10) / 10 : null);
+  new Chart(document.getElementById('chartOverviewStock').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: stockQtrs,
+      datasets: [
+        { label: 'Okuma (6103)',     data: idx(raw.okuma),  borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.08)',  borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'Makino (6135)',    data: idx(raw.makino), borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.08)',  borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'DMG MORI AG (GIL)',data: idx(raw.dmgAG),  borderColor: '#c084fc', backgroundColor: 'rgba(192,132,252,0.08)', borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true },
+        { label: 'DMG MORI JP (6141)',data: idx(raw.dmgJP), borderColor: '#2dd4bf', backgroundColor: 'rgba(45,212,191,0.08)',  borderWidth: 2.5, pointRadius: 3, tension: 0.3, fill: false, spanGaps: true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { boxWidth: 10, font: { size: 11 }, color: '#94a3b8' } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const keys = ['okuma','makino','dmgAG','dmgJP'];
+              const units = ['JPY','JPY','EUR','JPY'];
+              const i = ctx.datasetIndex;
+              const raw_val = raw[keys[i]][ctx.dataIndex];
+              const idx_val = ctx.parsed.y;
+              return ` ${ctx.dataset.label}: ${idx_val} (${units[i]} ${typeof raw_val === 'number' && raw_val < 100 ? raw_val.toFixed(2) : Math.round(raw_val).toLocaleString()})`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ...commonScaleOpts, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: {
+          ...commonScaleOpts,
+          min: 50,
+          title: { display: true, text: 'Index (2021Q1 = 100)', color: '#64748b', font: { size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
+})();
+
+// TAB SWITCHING
+// ============================================================
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function toggleEC(btn) {
+  const body = btn.parentElement.querySelector('.ec-body');
+  const arr = btn.querySelector('.ec-arr');
+  const isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  arr.textContent = isOpen ? '▼' : '▲';
+}
+</script>
+</body>
+</html>
