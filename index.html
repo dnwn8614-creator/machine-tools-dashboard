@@ -1037,6 +1037,25 @@
     2016년 두산인프라코어(현 HD현대인프라코어)에서 분리, MBK파트너스가 인수. 현재 글로벌 공작기계 Top 5 메이커로
     연간 매출 약 2.2조원 규모. 고수익성 구조(OP margin ~15-18%)가 특징. IPO 추진 중.
   </div>
+
+  <!-- DN솔루션즈 수주 & 수주잔고 -->
+  <div class="mt-5">
+    <h3 class="text-sm font-semibold text-gray-300 mb-3">수주 &amp; 수주잔고 (New Orders &amp; Backlog) · DN솔루션즈</h3>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-3">
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">신규수주 New Orders (억원) <span class="text-gray-600">· Source: DN오토모티브 IR</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartDNOrders"></canvas></div>
+      </div>
+      <div class="card p-4">
+        <h4 class="text-xs font-semibold text-gray-400 mb-3">수주잔고 Order Backlog (억원) <span class="text-gray-600">· Source: DN오토모티브 IR</span></h4>
+        <div class="chart-container" style="height:220px;"><canvas id="chartDNBacklog"></canvas></div>
+      </div>
+    </div>
+    <div class="note-box p-3 text-xs text-gray-400">
+      수주 데이터: DN오토모티브 IR 자료 (alphasquare 공개 PDF). 2020~2024는 연간 누계, 2025는 분기 단독값.
+      2024H1 신규수주 1조 1,040억원 (IR 텍스트 직접 기재). 2025Q1 +YoY 성장세 재개.
+    </div>
+  </div>
 </div>
 
 </div><!-- end main container -->
@@ -1597,6 +1616,62 @@ makeBarChart('chartDN3', calQtrs, [{
   label: '순이익 (억원)', data: dnNetEok,
   backgroundColor: 'rgba(251,191,36,0.65)', borderColor: 'rgba(251,191,36,0.9)', borderWidth: 1, spanGaps: true
 }], '억');
+
+// ---- DN솔루션즈 수주 데이터 (DN오토모티브 IR)  ----
+// 2020~2024: 연간 누계 (억원), 2025: 분기 단독값
+const dnOrderLabels = ['2020(연간)', '2021(연간)', '2022(연간)', '2023(연간)', '2024(연간)', '2025Q1', '2025Q2'];
+const dnNewOrders   = [3088, 24352, 21520, 20004, 21331, 5758, 6206];
+const dnBacklog     = [12964,  8411,  8270,  7181,  7469, 8287, 8768];
+
+(function(){
+  const ctx1 = document.getElementById('chartDNOrders');
+  if (ctx1) new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: dnOrderLabels,
+      datasets: [{
+        label: '신규수주 (억원)',
+        data: dnNewOrders,
+        backgroundColor: dnNewOrders.map((_, i) => i >= 5 ? 'rgba(248,113,113,0.5)' : 'rgba(248,113,113,0.7)'),
+        borderColor: '#f87171', borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: tooltipDefaults('억') },
+      scales: {
+        x: { ...commonScaleOpts },
+        y: { ...commonScaleOpts, beginAtZero: true,
+          ticks: { callback: v => v.toLocaleString() + '억' }
+        }
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('chartDNBacklog');
+  if (ctx2) new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: dnOrderLabels,
+      datasets: [{
+        label: '수주잔고 (억원)',
+        data: dnBacklog,
+        borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,0.12)',
+        borderWidth: 2.5, pointRadius: 4, tension: 0.3, fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: tooltipDefaults('억') },
+      scales: {
+        x: { ...commonScaleOpts },
+        y: { ...commonScaleOpts, beginAtZero: false,
+          ticks: { callback: v => v.toLocaleString() + '억' }
+        }
+      }
+    }
+  });
+})();
 
 // DN quarterly table
 (function(){
